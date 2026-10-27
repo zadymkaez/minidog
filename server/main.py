@@ -1,3 +1,4 @@
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import sqlite3
@@ -5,6 +6,13 @@ import json
 import os
 
 app = FastAPI(title="MiniDog Server")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 DB_NAME = "metrics.db"
 
@@ -68,3 +76,25 @@ def get_hosts():
     
     hosts = [{"hostname": r[0], "os": r[1], "last_seen": r[2]} for r in rows]
     return {"hosts": hosts}
+
+@app.get("/api/v1/metrics/history")
+def get_metrics_history(limit: int = 20):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT hostname, os, timestamp, data 
+        FROM metrics 
+        ORDER BY id DESC LIMIT ?
+    ''', (limit,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    history = []
+    for r in reversed(rows):
+        history.append({
+            "hostname": r[0],
+            "os": r[1],
+            "timestamp": r[2],
+            "data": json.loads(r[3])
+        })
+    return history
