@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiniDog Dashboard</title>
+    <!-- CSS: Tailwind via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- JS: Chart.js do wykresów -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-900 text-white font-sans p-6">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
+            <h1 class="text-3xl font-bold text-indigo-500">🐶 MiniDog Dashboard</h1>
+            <div id="status" class="px-3 py-1 text-sm rounded bg-green-900 text-green-300">Live API Connection</div>
+        </header>
+
+        <!-- Host Info Card -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
+                <h2 class="text-gray-400 text-sm font-semibold uppercase">Monitorowany Host</h2>
+                <p id="host-name" class="text-2xl font-bold mt-1">Ładowanie...</p>
+                <p id="host-os" class="text-sm text-gray-500 mt-1">-</p>
+            </div>
+            <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
+                <h2 class="text-gray-400 text-sm font-semibold uppercase">Użycie CPU</h2>
+                <p id="cpu-value" class="text-3xl font-bold text-indigo-400 mt-1">0%</p>
+            </div>
+            <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
+                <h2 class="text-gray-400 text-sm font-semibold uppercase">Użycie RAM</h2>
+                <p id="ram-value" class="text-3xl font-bold text-purple-400 mt-1">0 GB / 0 GB</p>
+            </div>
+        </div>
+
+        <!-- Chart Section -->
+        <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+            <h2 class="text-xl font-bold mb-4 text-gray-200">Użycie CPU i Pamięci RAM (%)</h2>
+            <div class="h-64">
+                <canvas id="metricsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('metricsChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'CPU Usage (%)',
+                        borderColor: '#818cf8',
+                        backgroundColor: 'rgba(129, 140, 248, 0.2)',
+                        data: [],
+                        fill: true,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'RAM Usage (%)',
+                        borderColor: '#c084fc',
+                        backgroundColor: 'rgba(192, 132, 252, 0.2)',
+                        data: [],
+                        fill: true,
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, max: 100, grid: { color: '#374151' } },
+                    x: { grid: { color: '#374151' } }
+                }
+            }
+        });
+
+        async function fetchMetrics() {
+            try {
+                // Odpytujemy serwer o najnowsze dane
+                const res = await fetch('http://127.0.0.1:8000/api/v1/hosts');
+                const data = await res.json();
+                
+                if(data.hosts && data.hosts.length > 0) {
+                    const host = data.hosts[0];
+                    document.getElementById('host-name').innerText = host.hostname;
+                    document.getElementById('host-os').innerText = "System: " + host.os;
+                }
+                
+                // Odpytanie o historię metryk z serwera (używamy danych w czasie rzeczywistym)
+                const rawMetrics = await fetch('http://127.0.0.1:8000/api/v1/metrics/history');
+                const metricsHistory = await rawMetrics.json();
+
+                const times = metricsHistory.map(m => new Date(m.timestamp * 1000).toLocaleTimeString());
+                const cpuData = metricsHistory.map(m => m.data.cpu.usage_percent);
+                const ramData = metricsHistory.map(m => m.data.ram.usage_percent);
+
+                const lastMetric = metricsHistory[metricsHistory.length - 1];
+                if(lastMetric) {
+                    document.getElementById('cpu-value').innerText = lastMetric.data.cpu.usage_percent + "%";
+                    document.getElementById('ram-value').innerText = lastMetric.data.ram.used_gb + " GB / " + lastMetric.data.ram.total_gb + " GB";
+                }
+
+                chart.data.labels = times;
+                chart.data.datasets[0].data = cpuData;
+                chart.data.datasets[1].data = ramData;
+                chart.update();
+
+            } catch (err) {
+                console.error("Błąd podczas pobierania danych:", err);
+            }
+        }
+
+        // Odświeżaj wykres co 3 sekundy
+        setInterval(fetchMetrics, 3000);
+        fetchMetrics();
+    </script>
+</body>
+</html>
