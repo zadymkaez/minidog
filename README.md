@@ -1,0 +1,1 @@
+# MiniDog - Lightweight Infrastructure Monitoring
