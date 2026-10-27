@@ -4,119 +4,211 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MiniDog Dashboard</title>
-    <!-- CSS: Tailwind via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- JS: Chart.js do wykresów -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-gray-900 text-white font-sans p-6">
-    <div class="max-w-6xl mx-auto">
-        <!-- Header -->
-        <header class="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
-            <h1 class="text-3xl font-bold text-indigo-500">🐶 MiniDog Dashboard</h1>
-            <div id="status" class="px-3 py-1 text-sm rounded bg-green-900 text-green-300">Live API Connection</div>
-        </header>
+<body class="bg-gray-950 text-gray-100 font-sans antialiased h-screen flex overflow-hidden">
 
-        <!-- Host Info Card -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
-                <h2 class="text-gray-400 text-sm font-semibold uppercase">Monitorowany Host</h2>
-                <p id="host-name" class="text-2xl font-bold mt-1">Ładowanie...</p>
-                <p id="host-os" class="text-sm text-gray-500 mt-1">-</p>
+    <!-- SIDEBAR -->
+    <aside class="w-72 bg-gray-900 border-r border-gray-800 flex flex-col justify-between">
+        <div>
+            <div class="p-5 border-b border-gray-800 flex items-center space-x-3">
+                <span class="text-2xl">🐶</span>
+                <h1 class="text-xl font-bold text-indigo-400 tracking-wide">MiniDog</h1>
             </div>
-            <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
-                <h2 class="text-gray-400 text-sm font-semibold uppercase">Użycie CPU</h2>
-                <p id="cpu-value" class="text-3xl font-bold text-indigo-400 mt-1">0%</p>
-            </div>
-            <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
-                <h2 class="text-gray-400 text-sm font-semibold uppercase">Użycie RAM</h2>
-                <p id="ram-value" class="text-3xl font-bold text-purple-400 mt-1">0 GB / 0 GB</p>
+
+            <div class="p-4">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Menu główne</p>
+                <nav class="space-y-1">
+                    <a href="#" class="flex items-center space-x-3 px-3 py-2 rounded-lg bg-indigo-600 text-white font-medium text-sm">
+                        <span>📊</span>
+                        <span>Monitorowanie</span>
+                    </a>
+                </nav>
+
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-6 mb-3">Monitorowane Hosty</p>
+                <div id="hosts-list" class="space-y-1 overflow-y-auto max-h-[calc(100vh-250px)] pr-1">
+                    <p class="text-sm text-gray-500 px-3">Ładowanie hostów...</p>
+                </div>
             </div>
         </div>
 
-        <!-- Chart Section -->
-        <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
-            <h2 class="text-xl font-bold mb-4 text-gray-200">Użycie CPU i Pamięci RAM (%)</h2>
-            <div class="h-64">
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500 flex items-center justify-between">
+            <span>Status API:</span>
+            <span id="api-status" class="px-2 py-0.5 rounded bg-green-900 text-green-300 font-mono">Online</span>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col overflow-y-auto bg-gray-950 p-8">
+        
+        <div class="flex justify-between items-center mb-8 pb-4 border-b border-gray-800">
+            <div>
+                <h2 id="current-host-title" class="text-2xl font-bold text-white">Wybierz hosta</h2>
+                <p id="current-host-os" class="text-sm text-gray-400 mt-0.5">System operacyjny: -</p>
+            </div>
+            <div class="text-right">
+                <span class="text-xs text-gray-500 block">Ostatnia synchronizacja</span>
+                <span id="last-sync" class="text-sm font-mono text-indigo-400">-</span>
+            </div>
+        </div>
+
+        <!-- Kafelki ze statystykami -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-gray-900 p-5 rounded-xl border border-gray-800 shadow-sm">
+                <h3 class="text-gray-400 text-xs font-bold uppercase tracking-wider">Użycie CPU</h3>
+                <p id="cpu-value" class="text-3xl font-extrabold text-indigo-400 mt-2">0%</p>
+            </div>
+            <div class="bg-gray-900 p-5 rounded-xl border border-gray-800 shadow-sm">
+                <h3 class="text-gray-400 text-xs font-bold uppercase tracking-wider">Użycie RAM</h3>
+                <p id="ram-value" class="text-3xl font-extrabold text-purple-400 mt-2">0 GB / 0 GB</p>
+            </div>
+            <div class="bg-gray-900 p-5 rounded-xl border border-gray-800 shadow-sm">
+                <h3 class="text-gray-400 text-xs font-bold uppercase tracking-wider">Dysk główny</h3>
+                <p id="disk-value" class="text-3xl font-extrabold text-emerald-400 mt-2">0%</p>
+            </div>
+        </div>
+
+        <!-- Sekcja z wykresem -->
+        <div class="bg-gray-900 p-6 rounded-xl border border-gray-800 mb-8 shadow-sm">
+            <h3 class="text-lg font-bold mb-4 text-gray-200">Historia obciążenia (CPU & RAM)</h3>
+            <div class="h-56 relative">
                 <canvas id="metricsChart"></canvas>
             </div>
         </div>
-    </div>
+
+        <!-- NOWA SEKCJA: Logi i Krytyczne Problemy -->
+        <div class="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-sm">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-200">🚨 Logi i Alerty Systemowe</h3>
+                <span class="text-xs text-gray-500">Ostatnie zdarzenia z hosta</span>
+            </div>
+            <div id="logs-container" class="space-y-2 max-h-60 overflow-y-auto font-mono text-sm">
+                <p class="text-gray-500">Brak logów dla tego hosta.</p>
+            </div>
+        </div>
+
+    </main>
 
     <script>
+        let selectedHost = null;
+
         const ctx = document.getElementById('metricsChart').getContext('2d');
         const chart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: [],
                 datasets: [
-                    {
-                        label: 'CPU Usage (%)',
-                        borderColor: '#818cf8',
-                        backgroundColor: 'rgba(129, 140, 248, 0.2)',
-                        data: [],
-                        fill: true,
-                        tension: 0.3
-                    },
-                    {
-                        label: 'RAM Usage (%)',
-                        borderColor: '#c084fc',
-                        backgroundColor: 'rgba(192, 132, 252, 0.2)',
-                        data: [],
-                        fill: true,
-                        tension: 0.3
-                    }
+                    { label: 'CPU (%)', borderColor: '#818cf8', backgroundColor: 'rgba(129, 140, 248, 0.1)', data: [], fill: true, tension: 0.3 },
+                    { label: 'RAM (%)', borderColor: '#c084fc', backgroundColor: 'rgba(192, 132, 252, 0.1)', data: [], fill: true, tension: 0.3 }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    y: { beginAtZero: true, max: 100, grid: { color: '#374151' } },
-                    x: { grid: { color: '#374151' } }
-                }
+                    y: { beginAtZero: true, max: 100, grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } },
+                    x: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } }
+                },
+                plugins: { legend: { labels: { color: '#d1d5db' } } }
             }
         });
 
-        async function fetchMetrics() {
+        async function fetchHosts() {
             try {
-                // Odpytujemy serwer o najnowsze dane
                 const res = await fetch('http://127.0.0.1:8000/api/v1/hosts');
                 const data = await res.json();
-                
-                if(data.hosts && data.hosts.length > 0) {
-                    const host = data.hosts[0];
-                    document.getElementById('host-name').innerText = host.hostname;
-                    document.getElementById('host-os').innerText = "System: " + host.os;
+                const hostsListEl = document.getElementById('hosts-list');
+                hostsListEl.innerHTML = '';
+
+                if (data.hosts && data.hosts.length > 0) {
+                    if (!selectedHost) selectedHost = data.hosts[0].hostname;
+
+                    data.hosts.forEach(host => {
+                        const isActive = host.hostname === selectedHost;
+                        const btnClass = isActive 
+                            ? 'w-full text-left px-3 py-2.5 rounded-lg bg-gray-800 text-indigo-400 font-medium text-sm border border-gray-700 flex items-center justify-between transition'
+                            : 'w-full text-left px-3 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-gray-200 text-sm font-medium flex items-center justify-between transition';
+
+                        const hostBtn = document.createElement('button');
+                        hostBtn.className = btnClass;
+                        hostBtn.innerHTML = `<span class="truncate">💻 ${host.hostname}</span><span class="w-2 h-2 rounded-full bg-green-500"></span>`;
+                        hostBtn.onclick = () => {
+                            selectedHost = host.hostname;
+                            fetchMetricsForHost();
+                            fetchHosts();
+                        };
+                        hostsListEl.appendChild(hostBtn);
+                    });
+                } else {
+                    hostsListEl.innerHTML = '<p class="text-sm text-gray-500 px-3">Brak podłączonych hostów</p>';
                 }
-                
-                // Odpytanie o historię metryk z serwera (używamy danych w czasie rzeczywistym)
-                const rawMetrics = await fetch('http://127.0.0.1:8000/api/v1/metrics/history');
-                const metricsHistory = await rawMetrics.json();
-
-                const times = metricsHistory.map(m => new Date(m.timestamp * 1000).toLocaleTimeString());
-                const cpuData = metricsHistory.map(m => m.data.cpu.usage_percent);
-                const ramData = metricsHistory.map(m => m.data.ram.usage_percent);
-
-                const lastMetric = metricsHistory[metricsHistory.length - 1];
-                if(lastMetric) {
-                    document.getElementById('cpu-value').innerText = lastMetric.data.cpu.usage_percent + "%";
-                    document.getElementById('ram-value').innerText = lastMetric.data.ram.used_gb + " GB / " + lastMetric.data.ram.total_gb + " GB";
-                }
-
-                chart.data.labels = times;
-                chart.data.datasets[0].data = cpuData;
-                chart.data.datasets[1].data = ramData;
-                chart.update();
-
             } catch (err) {
-                console.error("Błąd podczas pobierania danych:", err);
+                console.error("Błąd pobierania hostów:", err);
             }
         }
 
-        // Odświeżaj wykres co 3 sekundy
-        setInterval(fetchMetrics, 3000);
-        fetchMetrics();
+        async function fetchMetricsForHost() {
+            if (!selectedHost) return;
+
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/api/v1/metrics/history?hostname=${selectedHost}`);
+                const history = await res.json();
+
+                document.getElementById('current-host-title').innerText = selectedHost;
+                
+                if (history.length > 0) {
+                    const latest = history[history.length - 1];
+                    document.getElementById('current-host-os').innerText = "System operacyjny: " + latest.os;
+                    document.getElementById('last-sync').innerText = new Date(latest.timestamp * 1000).toLocaleTimeString();
+
+                    document.getElementById('cpu-value').innerText = latest.data.cpu.usage_percent + "%";
+                    document.getElementById('ram-value').innerText = latest.data.ram.used_gb + " GB / " + latest.data.ram.total_gb + " GB";
+                    document.getElementById('disk-value').innerText = latest.data.disk.usage_percent + "%";
+
+                    // Wykres
+                    const times = history.map(m => new Date(m.timestamp * 1000).toLocaleTimeString());
+                    chart.data.labels = times;
+                    chart.data.datasets[0].data = history.map(m => m.data.cpu.usage_percent);
+                    chart.data.datasets[1].data = history.map(m => m.data.ram.usage_percent);
+                    chart.update();
+
+                    // Renderowanie logów
+                    const logsContainer = document.getElementById('logs-container');
+                    logsContainer.innerHTML = '';
+                    
+                    if (latest.data.logs && latest.data.logs.length > 0) {
+                        latest.data.logs.forEach(log => {
+                            let badgeColor = 'bg-gray-800 text-gray-300 border-gray-700';
+                            if (log.level === 'CRITICAL') badgeColor = 'bg-red-950 text-red-300 border-red-800';
+                            if (log.level === 'ERROR') badgeColor = 'bg-rose-950 text-rose-300 border-rose-800';
+                            if (log.level === 'WARNING') badgeColor = 'bg-amber-950 text-amber-300 border-amber-800';
+                            if (log.level === 'INFO') badgeColor = 'bg-blue-950 text-blue-300 border-blue-800';
+
+                            const logDiv = document.createElement('div');
+                            logDiv.className = `p-2.5 rounded-lg border text-xs flex items-start space-x-3 ${badgeColor}`;
+                            logDiv.innerHTML = `
+                                <span class="font-bold uppercase tracking-wider px-1.5 py-0.5 rounded text-[10px] bg-black/30">${log.level}</span>
+                                <span class="flex-1 break-all">${log.message}</span>
+                            `;
+                            logsContainer.appendChild(logDiv);
+                        });
+                    } else {
+                        logsContainer.innerHTML = '<p class="text-sm text-gray-500">Brak logów dla tego pomiaru.</p>';
+                    }
+                }
+            } catch (err) {
+                console.error("Błąd pobierania metryk hosta:", err);
+            }
+        }
+
+        async function refreshData() {
+            await fetchHosts();
+            if (selectedHost) await fetchMetricsForHost();
+        }
+
+        setInterval(refreshData, 3000);
+        refreshData();
     </script>
 </body>
 </html>

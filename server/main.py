@@ -61,7 +61,6 @@ def receive_metrics(payload: MetricPayload):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Endpoint dla Dashboardu - lista hostów i ich ostatnie metryki
 @app.get("/api/v1/hosts")
 def get_hosts():
     conn = sqlite3.connect(DB_NAME)
@@ -78,14 +77,23 @@ def get_hosts():
     return {"hosts": hosts}
 
 @app.get("/api/v1/metrics/history")
-def get_metrics_history(limit: int = 20):
+def get_metrics_history(hostname: str = None, limit: int = 20):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute('''
-        SELECT hostname, os, timestamp, data 
-        FROM metrics 
-        ORDER BY id DESC LIMIT ?
-    ''', (limit,))
+    
+    if hostname:
+        cursor.execute('''
+            SELECT hostname, os, timestamp, data 
+            FROM metrics WHERE hostname = ?
+            ORDER BY id DESC LIMIT ?
+        ''', (hostname, limit))
+    else:
+        cursor.execute('''
+            SELECT hostname, os, timestamp, data 
+            FROM metrics 
+            ORDER BY id DESC LIMIT ?
+        ''', (limit,))
+        
     rows = cursor.fetchall()
     conn.close()
     
